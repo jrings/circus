@@ -20,7 +20,7 @@ SMODS.Atlas {
   -- Key for code to find it with
   key = "a_circus",
   -- The name of the file, for the code to pull the atlas from
-  path = "sheet1.png",
+  path = "jokers1.png",
   -- Width of each sprite in 1x size
   px = 71,
   -- Height of each sprite in 1x size
