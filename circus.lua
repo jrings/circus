@@ -660,7 +660,6 @@ SMODS.Joker {
   rarity = 4,
   atlas = 'a_circus',
   pos = { x = 0, y = 3 },
-  -- soul_pos sets the soul sprite, only used in vanilla for legenedaries and Hologram.
   soul_pos = { x = 4, y = 3 },
   cost = 20,
   add_to_deck = function(self, card, from_debuff)
@@ -674,6 +673,41 @@ SMODS.Joker {
   end
 }
 
+--- Joker Pyramid: Once per round, gain an additional hand when you score a Three of a kind.
+--- ?: All cards score 10 chips.
+--- 
+
+--- New Decks
+--- 
+--- 
+
+SMODS.Back {
+  name = "Proprioception Deck",
+  key = "proprioception",
+  pos = { x = 0, y = 0 },
+  loc_txt = {
+    name = "Proprioception",
+    text = {
+      "Only face cards and {C:attention}2 copies{}",
+      "of each even-rank card"
+    }
+  },
+  apply = function(self)
+    G.E_MANAGER:add_event(Event({
+      func = function()
+        local even_out = { ['Ace'] = '2', ['3'] = '4', ['5'] = '6', ['7'] = '8', ['9'] = '10' }
+        for _, card in ipairs(G.playing_cards) do
+          if even_out[card.base.value] ~= nil then
+            assert(SMODS.change_base(card, nil, even_out[card.base.value]))
+          end
+        end
+        return true
+      end
+    }))
+  end
+}
+
+--- 
 --- New Bosses
 --- 
 
