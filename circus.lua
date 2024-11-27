@@ -12,6 +12,7 @@
 -- Using sounds from
 -- Strong Man Noises.mp3 by Volvion -- https://freesound.org/s/609795/ -- License: Creative Commons 0
 -- Cannon boom by Quassorr -- https://freesound.org/s/758072/ -- License: Creative Commons 0
+-- Entry of the Gladiators, Op.68 - Julius Fučík - Arranged for Strings by GregorQuendel -- https://freesound.org/s/735154/ -- License: Attribution NonCommercial 4.0
 
 -- Graphics misappropriated: Bear blind graphic from BelenosBear
 
@@ -123,8 +124,7 @@ SMODS.Joker {
   loc_txt = {
     name = 'Trickster',
     text = {
-      "Gives {C:chips}+#1#{} Chips and",
-      "{C:mult}+#2#{} Mult when scored.",
+      "{C:chips}+#1#{} Chips {C:mult}+#2#{} Mult",
       "Sell to add a random joker that ",
       "costs {C:money}1{} to sell."
     }
@@ -160,33 +160,37 @@ SMODS.Joker {
   end
 }
 
-SMODS.Joker {
+SMODS.Joker { 
   key = 'sword',
   loc_txt = {
     name = 'Sword Swallower',
     text = {
-      "Gives {C:mult}+#1#{} Mult when scored."
+      "{C:mult}+25{} Mult if bought",
+      "{C:mult}+10{} otherwise",
+      "{C:inactive}(Currently {C:mult}+#1#{}Mult){C:inactive}"
     }
   },
-  config = { extra = { mult = 25 } },
+  config = { extra = { mult = 10 } },
   rarity = 1,
   atlas = 'a_circus',
   pos = { x = 2, y = 0 },
-  cost = 15,
+  cost = 12,
   loc_vars = function(self, info_queue, card)
     return { vars = { card.ability.extra.mult } }
   end,
   calculate = function(self, card, context)
+    if context.buying_card and not context.blueprint and (context.card == card) then
+      card.ability.extra.mult = 25
+    end
     if context.joker_main then
       return { mult_mod = card.ability.extra.mult,
       message = localize {
           type = 'variable',
           key = 'a_mult',
-          vars = { card.ability.extra.mult}
+          vars = {card.ability.extra.mult}
       }}
-      end
     end
- 
+  end
 }
 
 local loophole = SMODS.Joker {
@@ -205,12 +209,9 @@ local loophole = SMODS.Joker {
 	blueprint_compat = false,
   calculate = function(self, card, context)
     if context.joker_main and context.scoring_name == "Four of a Kind" then
-      sendInfoMessage("Triggering two pair jokers")
       local other_joker_ret = {}
       for _, other_joker in ipairs(G.jokers.cards) do
-        sendInfoMessage("Checking joker " .. other_joker.label)
         if other_joker.label == "Mad Joker" then
-          sendInfoMessage("Triggering" .. other_joker.label)
           if other_joker_ret.mult_mod then
             other_joker_ret.mult_mod = other_joker_ret.mult_mod + 10
           else
@@ -220,7 +221,6 @@ local loophole = SMODS.Joker {
           G.E_MANAGER:add_event(Event({delay=0.15, func = function() other_joker:juice_up(); return true end }))
         end
         if other_joker.label == "Clever Joker" then
-          sendInfoMessage("Triggering" .. other_joker.label)
           if other_joker_ret.chip_mod then
             other_joker_ret.chip_mod = other_joker_ret.chip_mod + 80
           else
@@ -337,29 +337,39 @@ local joker_cannonball = SMODS.Joker{
     name = 'Joker Cannonball',
     text = {
       "Create a random five-card hand {C:planet}Planet{} card",
-      'whenever the {C:attention}first hand{} has {C:attention}five{} scored cards'
+      "the first time a {C:attention}five{} scoring cards",
+      "is scored per round"
     }
   },
-  config = { },
+  config = { extra = { has_triggered = false} },
   rarity = 2,
   atlas = 'a_circus',
   pos = { x = 1, y = 1 },
   cost = 5,
+  loc_vars = function(self, info_queue, card)
+    return { vars = { card.ability.extra.has_triggered } }
+  end,
   calculate = function(self, card, context)
-    if context.joker_main and G.GAME.current_round.hands_played == 0 and #context.scoring_hand == 5 then
-      local five_hands = {"Straight", "Straight Flush", "Flush"}
-      if G.GAME.hands["Five of a Kind"].played > 0 then
-        table.insert(five_hands, "Five of a Kind")
+    if context.after and #context.scoring_hand == 5 then
+      if card.ability.extra and not card.ability.extra.has_triggered then
+        card.ability.extra.has_triggered = true
+        local five_hands = {"Straight", "Straight Flush", "Flush"}
+        if G.GAME.hands["Five of a Kind"].played > 0 then
+          table.insert(five_hands, "Five of a Kind")
+        end
+        if G.GAME.hands["Flush Five"].played > 0 then
+          table.insert(five_hands, "Flush Five")
+        end
+        local pchoice = pseudorandom_element(five_hands, pseudoseed('joker_cannonball'))
+          play_sound('circus_cannonball')
+          local pcard = create_card("Planet", G.consumeables, nil, nil, nil, pchoice)
+          pcard:add_to_deck()
+          G.consumeables:emplace(pcard)
+          card:juice_up(0.3, 0.5)
       end
-      if G.GAME.hands["Flush Five"].played > 0 then
-        table.insert(five_hands, "Flush Five")
-      end
-      local pchoice = pseudorandom_element(five_hands, pseudoseed('joker_cannonball'))
-        play_sound('circus_cannonball')
-        local pcard = create_card("Planet", G.consumeables, nil, nil, nil, pchoice)
-        pcard:add_to_deck()
-        G.consumeables:emplace(pcard)
-        card:juice_up(0.3, 0.5)
+    end
+    if context.end_of_round and not context.game_over and not context.blueprint then
+      card.ability.extra.has_triggered = false
     end
   end
 }
@@ -387,7 +397,6 @@ local palm_reader = SMODS.Joker{
         -- Choose good, medium or bad tree
         local r = 1 -- pseudorandom('palm_reader', 1, 3)
         local tcard
-        sendInfoMessage("Palm reader chose " .. r)
         if r == 1 then -- good tree give something actually helpful
           if hands_left >= 2 then
             if G.GAME.dollars <= 4 then
@@ -498,6 +507,12 @@ local palm_reader = SMODS.Joker{
   end 
 }
 
+SMODS.Sound {
+  key = 'entrance',
+  path = 'entrance.ogg'
+}
+
+
 local entrance_of_the_gladiators = SMODS.Joker {
   key = 'entrance_of_the_gladiators',
   loc_txt = {
@@ -506,7 +521,7 @@ local entrance_of_the_gladiators = SMODS.Joker {
         "This Joker gains {X:mult,C:white} X#2# {} Mult",
         "every time you buy a {C:attention}Circus joker{}",
         "{C:inactive}(Currently {X:mult,C:white} X#1# {C:inactive} Mult)"
-    }
+    } -- add the sound
   },
   config = { extra = { xmult = 1.5, xmult_gain = 0.25 } },
   rarity = 1,
@@ -520,7 +535,12 @@ local entrance_of_the_gladiators = SMODS.Joker {
     if context.buying_card and not context.blueprint and not (context.card == card) then
       if string.find(context.card.config.center.key, "j_circus_") then
         card.ability.extra.xmult = card.ability.extra.xmult + card.ability.extra.xmult_gain
-        G.E_MANAGER:add_event(Event({delay=0.15, func = function() card:juice_up(); return true end }))
+        G.E_MANAGER:add_event(Event({delay=0.15, 
+        func = function() 
+          card:juice_up()
+          play_sound('circus_entrance')
+          return true 
+        end }))
       end
     end
     if context.joker_main then
@@ -673,7 +693,42 @@ SMODS.Joker {
   end
 }
 
---- Joker Pyramid: Once per round, gain an additional hand when you score a Three of a kind.
+local joker_pyramid = SMODS.Joker {
+  key = 'joker_pyramid',
+  loc_txt = {
+    name = 'Joker Pyramid',
+    text = {
+      "Once per round, gain an additional hand",
+      "when you score a Three of a kind."
+    }
+  },
+  config = { extra = { count_3oaks = 0 } },
+  rarity = 1,
+  atlas = 'a_circus',
+  pos = { x = 1, y = 3 },
+  cost = 6,
+  loc_vars = function(self, info_queue, card)
+    return { vars = { card.ability.extra.count_3oaks } }
+  end,
+  calculate = function(self, card, context)
+    if context.scoring_name == "Three of a Kind" and context.joker_main then
+      card.ability.extra.count_3oaks = card.ability.extra.count_3oaks + 1
+      if card.ability.extra.count_3oaks == 1 then
+        G.GAME.current_round.hands_left = G.GAME.current_round.hands_left + 1
+        return {
+          message = "Gained a hand!",
+          colour = G.C.MULT,
+          card=card
+        }
+        -- Add sound a juice
+      end
+      if context.end_of_round and not context.game_over and not context.blueprint then
+        card.ability.extra.count_3oaks = 0
+      end
+    end
+  end
+}
+
 --- ?: All cards score 10 chips.
 --- 
 
@@ -684,7 +739,8 @@ SMODS.Joker {
 SMODS.Back {
   name = "Proprioception Deck",
   key = "proprioception",
-  pos = { x = 0, y = 0 },
+  pos = { x = 1, y = 3 },
+  atlas = 'a_circus',
   loc_txt = {
     name = "Proprioception",
     text = {
