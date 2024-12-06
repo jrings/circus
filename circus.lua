@@ -16,6 +16,10 @@
 
 -- Graphics misappropriated: Bear blind graphic from BelenosBear
 
+
+math.randomseed(os.time())
+
+
 --Creates an atlas for cards to use
 SMODS.Atlas {
   -- Key for code to find it with
@@ -97,7 +101,7 @@ SMODS.Joker {
   end,
   calculate = function(self, card, context)
     if context.joker_main then
-      return {chips = card.ability.extra.chips,
+      return {chip_mod = card.ability.extra.chips,
       message = localize {
           type = 'variable',
           key = 'a_chips',
@@ -160,21 +164,21 @@ SMODS.Joker {
   end
 }
 
-SMODS.Joker { 
+local sword_swallower = SMODS.Joker { 
   key = 'sword',
   loc_txt = {
     name = 'Sword Swallower',
     text = {
       "{C:mult}+25{} Mult if bought",
       "{C:mult}+10{} otherwise",
-      "{C:inactive}(Currently {C:mult}+#1#{}Mult){C:inactive}"
+      "{C:inactive}(Currently {C:mult}+#1#{} Mult){C:inactive}"
     }
   },
   config = { extra = { mult = 10 } },
   rarity = 1,
   atlas = 'a_circus',
   pos = { x = 2, y = 0 },
-  cost = 12,
+  cost = 10,
   loc_vars = function(self, info_queue, card)
     return { vars = { card.ability.extra.mult } }
   end,
@@ -337,7 +341,7 @@ local joker_cannonball = SMODS.Joker{
     name = 'Joker Cannonball',
     text = {
       "Create a random five-card hand {C:planet}Planet{} card",
-      "the first time a {C:attention}five{} scoring cards",
+      "the first time a {C:attention}five card hand{}",
       "is scored per round"
     }
   },
@@ -353,19 +357,20 @@ local joker_cannonball = SMODS.Joker{
     if context.after and #context.scoring_hand == 5 then
       if card.ability.extra and not card.ability.extra.has_triggered then
         card.ability.extra.has_triggered = true
-        local five_hands = {"Straight", "Straight Flush", "Flush"}
+        local five_hands = {"c_earth", "c_saturn", "c_jupiter", "c_neptune"}
         if G.GAME.hands["Five of a Kind"].played > 0 then
-          table.insert(five_hands, "Five of a Kind")
+          table.insert(five_hands, "c_planet_x")
         end
         if G.GAME.hands["Flush Five"].played > 0 then
-          table.insert(five_hands, "Flush Five")
+          table.insert(five_hands, "c_eris")
         end
         local pchoice = pseudorandom_element(five_hands, pseudoseed('joker_cannonball'))
-          play_sound('circus_cannonball')
-          local pcard = create_card("Planet", G.consumeables, nil, nil, nil, pchoice)
-          pcard:add_to_deck()
-          G.consumeables:emplace(pcard)
-          card:juice_up(0.3, 0.5)
+        play_sound('circus_cannonball')
+        sendInfoMessage(pchoice)
+        local pcard = create_card("Planet", G.consumeables, nil, nil, nil, nil, pchoice)
+        pcard:add_to_deck()
+        G.consumeables:emplace(pcard)
+        card:juice_up(0.3, 0.5)
       end
     end
     if context.end_of_round and not context.game_over and not context.blueprint then
@@ -383,126 +388,146 @@ local palm_reader = SMODS.Joker{
       "Creates a {C:tarot}Tarot{} card you need."
     }
   },
-  config = { },
+  config = { extra = {has_triggered = false} },
   rarity = 3,
   atlas = 'a_circus',
   pos = { x = 4, y = 1 },
   cost = 6,
+  loc_vars = function(self, info_queue, card)
+    return { vars = { card.ability.extra.has_triggered } }
+  end,
   calculate = function(self, card, context)
-    if context.discard  and G.GAME.current_round.discards_left == 1 then  -- triggers once for each discard still...
-      if #G.consumeables.cards + G.GAME.consumeable_buffer < G.consumeables.config.card_limit then
-        local hand_on = G.GAME.current_round.hands_played
-        local hands_left = G.GAME.current_round.hands_left
-        local best_hand_level = G.GAME.hands[G.GAME.current_round.most_played_poker_hand].level
-        -- Choose good, medium or bad tree
-        local r = 1 -- pseudorandom('palm_reader', 1, 3)
-        local tcard
-        if r == 1 then -- good tree give something actually helpful
-          if hands_left >= 2 then
-            if G.GAME.dollars <= 4 then
-              if G.GAME.round_resets.ante <= 4 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_devil') -- Tested
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_magician') -- Tested
-              end
-            else
-              if best_hand_level < 3 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_high_priestess')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_emperor')
-              end
-            end
-          else -- only 1 hand left
-            if G.GAME.chips / G.GAME.blind.chips < 0.5 then
-              if #G.GAME.jokers.cards <= 1 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_judgement')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_justice')
-              end
-            else
-              if best_hand_level < 3 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_empress')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_hierophant')
-              end
+    if context.discard  and G.GAME.current_round.discards_left == 1 then  
+      if not card.ability.extra.has_triggered then
+        card.ability.extra.has_triggered = true
+        if #G.consumeables.cards + G.GAME.consumeable_buffer < G.consumeables.config.card_limit then
+          local hand_on = G.GAME.current_round.hands_played
+          local hands_left = G.GAME.current_round.hands_left
+          local best_hand_level = 0
+          for _, val in pairs(G.GAME.hands) do
+            if val.level and val.level > best_hand_level then
+              best_hand_level = val.level
             end
           end
-        elseif r == 2 then -- might be helpful, somewhat targeted
-          if G.GAME.round_resets.ante > #G.joker.cards then
-            if G.GAME.dollars > 8 then
-              if #G.deck.cards > 51 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, "c_hanged_man")
+          -- Choose good, medium or bad tree
+          local r = 3 -- pseudorandom('palm_reader', 1, 3)
+          local tcard
+          if r == 1 then -- good tree give something actually helpful
+            if hands_left >= 2 then
+              if G.GAME.dollars <= 4 then
+                if G.GAME.round_resets.ante <= 4 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_devil') -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_magician') -- Tested
+                end
               else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, "c_temperance")
+                if best_hand_level < 3 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_high_priestess') -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_emperor') -- Tested
+                end
               end
-            else  
-              if #G.jokers.cards > 2 then
-                tcard = create_card("Spectral", G.consumeables, nil, nil, nil, nil, "c_immolate")
+            else -- only 1 hand left
+              if G.GAME.chips / G.GAME.blind.chips < 0.5 then
+                if G.jokers and #G.jokers.cards <= 1 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_judgement') -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_justice') -- Tested
+                end
               else
-                tcard = create_card("Spectral", G.consumeables, nil, nil, nil, nil, "c_ouija")
+                if best_hand_level < 3 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_empress')  -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_heirophant') -- Tested
+                end
               end
             end
-          else
-            local n_enhanced = 0
-            for _, val in ipairs(G.hand.cards) do
-                if val.ability.set == 'Enhanced' then n_enhanced = n_enhanced + 1 end
-            end
-            if n_enhanced > 1 then
-              if #G.consumeables > 0 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_fool')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_death')
+          elseif r == 2 then -- might be helpful, somewhat targeted
+            if G.GAME.round_resets.ante > #G.jokers.cards then
+              if G.GAME.dollars > 8 then
+                if G.GAME.starting_deck_size > 51 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, "c_hanged_man")  -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, "c_temperance")  -- Tested
+                end
+              else  
+                if #G.jokers.cards > 2 then
+                  tcard = create_card("Spectral", G.consumeables, nil, nil, nil, nil, "c_immolate")
+                else
+                  tcard = create_card("Spectral", G.consumeables, nil, nil, nil, nil, "c_ouija")
+                end
               end
             else
-              if hands_left < 2 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_chariot')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_hermit')
-              end
-            end
-          end
-        else -- bad tree, give something mostly unhelpful
-          if hands_left >= 2 then
-            if G.GAME.chips / G.GAME.blind.chips < 0.5 then
-              local nglass = 0
+              local n_enhanced = 0
               for _, val in ipairs(G.hand.cards) do
-                  if val.ability.name == 'Glass Card' then nglass = nglass + 1 end
+                  if val.ability.set == 'Enhanced' then n_enhanced = n_enhanced + 1 end
               end
-              if nglass >= 1 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_star')
+              if n_enhanced > 1 then
+                if #G.consumeables.cards > 0 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_fool')  -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_death')  -- Tested
+                end
               else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_tower')
+                if hands_left < 2 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_chariot')  -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_hermit')  -- Tested
+                end
+              end
+            end
+          else -- bad tree, give something mostly unhelpful
+            if hands_left >= 2 then
+              if G.GAME.chips / G.GAME.blind.chips < 0.5 then
+                local nglass = 0
+                for _, val in ipairs(G.hand.cards) do
+                    if val.ability.name == 'Glass Card' then nglass = nglass + 1 end
+                end
+                if nglass >= 1 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_star')  -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_tower')  -- Tested
+                end
+              else
+                local n_aces = 0
+                for _, val in ipairs(G.hand.cards) do
+                  if val.base and val.base.value == "Ace" then
+                    n_aces = n_aces + 1
+                  end
+                end
+                if n_aces == 0 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_strength') -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_world')  -- Tested
+                end
               end
             else
-              if G.GAME.removed then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_strength')
+              local nwild = 0
+              for _, val in ipairs(G.hand.cards) do
+                  if val.ability.name == 'Wild Card' then nwild = nwild + 1 end
+              end
+              if nwild == 0 then
+                if #G.jokers.cards > 2 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_wheel_of_fortune') -- Tested
+                else
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_sun')  -- Tested
+                end
               else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_world')
+                if #G.consumeables.cards == 0 then
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_lovers') -- Tested
+                else 
+                  tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_moon')  -- Tested
+                end
               end
-            end
-          else
-            local nwild = 0
-            for _, val in ipairs(G.hand.cards) do
-                if val.ability.name == 'Wild Card' then nwild = nwild + 1 end
-            end
-            if nwild == 0 then
-              if #G.jokers.cards > 2 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_wheel_of_fortune')
-              else
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_sun')
-              end
-            else
-              if #G.consumeables == 0 then
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_lovers')
-              else 
-                tcard = create_card("Tarot", G.consumeables, nil, nil, nil, nil, 'c_moon')
-              end
-            end
-          end 
+            end 
+          end
+          tcard:add_to_deck()
+          G.consumeables:emplace(tcard)
         end
-        tcard:add_to_deck()
-        G.consumeables:emplace(tcard)
       end
+    end
+    if context.end_of_round and not context.game_over and not context.blueprint then
+      card.ability.extra.has_triggered = false
     end
   end 
 }
@@ -699,7 +724,7 @@ local joker_pyramid = SMODS.Joker {
     name = 'Joker Pyramid',
     text = {
       "Once per round, gain an additional hand",
-      "when you score a Three of a kind."
+      "when you score {C:attention}Three of a kind{}"
     }
   },
   config = { extra = { count_3oaks = 0 } },
@@ -714,7 +739,7 @@ local joker_pyramid = SMODS.Joker {
     if context.scoring_name == "Three of a Kind" and context.joker_main then
       card.ability.extra.count_3oaks = card.ability.extra.count_3oaks + 1
       if card.ability.extra.count_3oaks == 1 then
-        G.GAME.current_round.hands_left = G.GAME.current_round.hands_left + 1
+        ease_hands_played(1)
         return {
           message = "Gained a hand!",
           colour = G.C.MULT,
@@ -729,8 +754,41 @@ local joker_pyramid = SMODS.Joker {
   end
 }
 
---- ?: All cards score 10 chips.
---- 
+
+local knife_thrower = SMODS.Joker {
+  key = 'knife_thrower',
+  loc_txt = {
+    name = 'Knife Thrower',
+    text = {
+      "{C:mult}#1#{} Chips",
+      "Reroll when you sell a joker"
+    }
+  },
+  config = { extra = { chips = 50 } },
+  rarity = 1,
+  atlas = 'a_circus',
+  pos = { x = 2, y = 3 },
+  cost = 5,
+  loc_vars = function(self, info_queue, card)
+    return { vars = { card.ability.extra.chips } }
+  end,
+  calculate = function(self, card, context)
+    if context.joker_main then
+      return { chip_mod = card.ability.extra.chips,
+      message = localize {
+          type = 'variable',
+          key = 'a_chips',
+          vars = { card.ability.extra.chips}
+      }}
+    end
+    if context.selling_card and not context.blueprint and context.card.config.center.set == 'Joker' then
+      card.ability.extra.chips = math.random(1, 100)
+    end
+  end,
+  add_to_deck = function(self, card, from_debuff)
+    card.ability.extra.chips = math.random(1, 100)
+  end
+}
 
 --- New Decks
 --- 
