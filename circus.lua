@@ -761,7 +761,7 @@ local knife_thrower = SMODS.Joker {
     name = 'Knife Thrower',
     text = {
       "{C:mult}#1#{} Chips",
-      "Reroll when you sell a joker"
+      "Reset on buy and when you sell a joker"
     }
   },
   config = { extra = { chips = 50 } },
@@ -790,6 +790,26 @@ local knife_thrower = SMODS.Joker {
   end
 }
 
+
+local lion_tamer = SMODS.Joker {
+  key = 'lion_tamer',
+  loc_txt = {
+    name = 'Lion Tamer',
+    text = {
+      "Whenever you use a consumeable during a blind",
+      "draw {C:attention}3{} cards."
+    }
+  },
+  rarity = 3,
+  atlas = 'a_circus',
+  pos = { x = 3, y = 3 },
+  cost = 6,
+  calculate = function(self, card, context)
+    if context.consumeable and #G.hand.cards > 0 then -- during a round
+      G.FUNCS.draw_from_deck_to_hand(3)
+    end
+  end
+}
 --- New Decks
 --- 
 --- 
@@ -821,6 +841,35 @@ SMODS.Back {
   end
 }
 
+SMODS.Back {
+  name = "Sideshow Deck",
+  key = "sideshow",
+  pos = { x = 2, y = 3 },
+  atlas = 'a_circus',
+  loc_txt = {
+    name = "Sideshow",
+    text = {
+      "Start with a random uncommon or rare",
+      "Circus joker"
+    }
+  },
+  apply = function(self)
+    local unc_rare_circus_jokers = {"j_circus_trapeze", "j_circus_fire_eater",  "j_circus_joker_cannonball", 
+    "j_circus_palm_reader", "j_circus_strongman", "j_circus_ringmaster", "j_circus_lion_tamer"}
+    local joker_name = pseudorandom_element(unc_rare_circus_jokers, pseudoseed('sideshow' .. os.date('%Y%m%d%H%M%S')))
+    sendInfoMessage(joker_name)
+    G.E_MANAGER:add_event(Event({
+      func = function()
+        if G.jokers then
+          local njoker = create_card("Joker", G.jokers, nil, 2, nil, nil, joker_name)
+          njoker:add_to_deck()
+          G.jokers:emplace(njoker)
+          return true
+        end
+    end,
+}))
+  end
+}
 --- 
 --- New Bosses
 --- 
