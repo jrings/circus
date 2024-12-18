@@ -13,7 +13,7 @@
 -- Strong Man Noises.mp3 by Volvion -- https://freesound.org/s/609795/ -- License: Creative Commons 0
 -- Cannon boom by Quassorr -- https://freesound.org/s/758072/ -- License: Creative Commons 0
 -- Entry of the Gladiators, Op.68 - Julius Fučík - Arranged for Strings by GregorQuendel -- https://freesound.org/s/735154/ -- License: Attribution NonCommercial 4.0
-
+-- "Horse Whinny, Close, A.wav" by InspectorJ (www.jshaw.co.uk) of Freesound.org
 -- Graphics misappropriated: Bear blind graphic from BelenosBear
 
 
@@ -52,6 +52,10 @@ SMODS.Sound {
 SMODS.Sound {
   key = 'strongman',
   path = 'strongman.ogg'
+}
+SMODS.Sound {
+  key = 'horse',
+  path = 'horse.ogg'
 }
 
 SMODS.load_file('circus/common_jokers.lua')()

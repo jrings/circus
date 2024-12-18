@@ -1,3 +1,4 @@
+
 local balancing_act = SMODS.Joker {
     key = 'balancing_act',
     loc_txt = {
@@ -33,10 +34,11 @@ local candy_butcher = SMODS.Joker {
         name = 'Candy Butcher',
         text = {
         "Gain {C:mult}#1#{} Mult on",
-        "the {C:attention}first hand{} of each round"
+        "the {C:attention}first hand{} of each round",
+        "and during {C:attention}boss blinds{}"
         }
     },
-    config = { extra = { mult = 16 } },
+    config = { extra = { mult = 10 } },
     rarity = 1,
     atlas = 'a_circus',
     pos = { x = 3, y = 1 },
@@ -45,7 +47,8 @@ local candy_butcher = SMODS.Joker {
         return { vars = { card.ability.extra.mult } }
     end,
     calculate = function(self, card, context)
-        if context.joker_main and G.GAME.current_round.hands_played == 0 then
+        if context.joker_main and (G.GAME.current_round.hands_played == 0
+        or (G.GAME.blind and G.GAME.blind:get_type() == 'Boss')) then
         return { mult_mod = card.ability.extra.mult,
         message = localize {
             type = 'variable',
@@ -176,7 +179,7 @@ local knife_thrower = SMODS.Joker {
       name = 'Knife Thrower',
       text = {
         "{C:mult}#1#{} Chips",
-        "Reset on buy and when you sell a joker"
+        "Resets on buy and when you sell a joker"
       }
     },
     config = { extra = { chips = 50 } },
@@ -258,7 +261,7 @@ local mucker = SMODS.Joker {
       if context.joker_main then
         local n_hearts = 0
         for _, card in ipairs(context.scoring_hand) do
-          if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit) 
+          if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit and not card.debuffed_by_blind)
               and card.base.suit == 'Hearts' then
             n_hearts = n_hearts + 1
           end
@@ -297,7 +300,7 @@ local sad_clown = SMODS.Joker {
     if context.joker_main then
       local n_diamonds = 0
       for _, card in ipairs(context.scoring_hand) do
-        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit) 
+        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit and not card.debuffed_by_blind)
             and card.base.suit == 'Diamonds' then
           n_diamonds = n_diamonds + 1
         end
@@ -337,7 +340,7 @@ local silly_clown = SMODS.Joker {
     if context.joker_main then
       local n_spades = 0
       for _, card in ipairs(context.scoring_hand) do
-        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit) 
+        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit and not card.debuffed_by_blind) 
             and card.base.suit == 'Spades' then
           n_spades = n_spades + 1
         end
@@ -434,8 +437,6 @@ local talent_show = SMODS.Joker {
     cost = 6,
     calculate = function(self, card, context)
       if context.cardarea == G.play and context.repetition and not context.repetition_only then
-        -- context.other_card is something that's used when either context.individual or context.repetition is true
-        -- It is each card 1 by 1, but in other cases, you'd need to iterate over the scoring hand to check which cards are there.
         if context.other_card.seal or context.other_card.edition then
           return {
             message = 'Again!',
@@ -510,7 +511,7 @@ local violent_clown = SMODS.Joker {
     if context.joker_main then
       local n_clubs = 0
       for _, card in ipairs(context.scoring_hand) do
-        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit) 
+        if (card.ability.name ~= 'Stone Card' and not card.config.center.no_suit  and not card.debuffed_by_blind)
             and card.base.suit == 'Clubs' then
           n_clubs = n_clubs + 1
         end
